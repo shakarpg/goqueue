@@ -6,6 +6,7 @@
 
 Sistema de **fila de jobs** e **processamento assíncrono** escrito em **Golang**, demonstrando uso de **goroutines**, **channels**, **worker pools**, e **graceful shutdown**.
 
+![imagem](./imagem.png)
 ---
 
 ## 🚀 Tecnologias
