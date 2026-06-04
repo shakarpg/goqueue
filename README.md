@@ -1,162 +1,162 @@
-# 🔄 GoQueue
+# 🚀 GoQueue: Sistema de Fila de Jobs e Processamento Assíncrono em Go
 
-![Go Version](https://img.shields.io/badge/Go-1.22-blue)
-![License](https://img.shields.io/badge/license-MIT-green)
-![Build](https://github.com/shakarpg/goqueue/actions/workflows/go.yml/badge.svg)
+<p align="center">
+  <img src="https://img.shields.io/badge/Go-00ADD8?style=for-the-badge&logo=go&logoColor=white" alt="GoLang">
+  <img src="https://img.shields.io/badge/Docker-2496ED?style=for-the-badge&logo=docker&logoColor=white" alt="Docker">
+  <img src="https://img.shields.io/badge/GitHub_Actions-2671E5?style=for-the-badge&logo=githubactions&logoColor=white" alt="GitHub Actions">
+  <img src="https://img.shields.io/badge/License-MIT-yellow.svg" alt="License MIT">
+</p>
 
-Sistema de **fila de jobs** e **processamento assíncrono** escrito em **Golang**, demonstrando uso de **goroutines**, **channels**, **worker pools**, e **graceful shutdown**.
+Este projeto implementa um sistema de **fila de jobs** e **processamento assíncrono** em **Go (Golang)**, demonstrando o uso eficiente de **goroutines**, **channels**, **worker pools** e **graceful shutdown**. É uma solução robusta para lidar com tarefas que consomem tempo, como envio de e-mails, geração de relatórios PDF ou processamento de imagens, sem bloquear a thread principal da aplicação.
 
-![imagem](./imagem.png)
----
+## ✨ Funcionalidades
 
-## 🚀 Tecnologias
+*   **Fila de Jobs Concorrente:** Utiliza `channels` para gerenciar a fila de jobs de forma segura e eficiente.
+*   **Worker Pool:** Um conjunto de `goroutines` processa os jobs em paralelo, otimizando o uso de recursos.
+*   **Processamento Assíncrono:** Permite que a aplicação responda rapidamente enquanto tarefas demoradas são executadas em segundo plano.
+*   **Graceful Shutdown:** Garante que os jobs em andamento sejam concluídos antes do desligamento da aplicação, evitando perda de dados.
+*   **API RESTful:** Interface HTTP para enfileirar novos jobs, consultar o status de jobs existentes e obter estatísticas da fila.
+*   **Logging Estruturado:** Integração com `zap` para logs de alta performance e fácil análise.
 
-- **Go 1.22**
-- **Chi Router** (rotas HTTP)
-- **Goroutines & Channels** (concorrência)
-- **Worker Pool Pattern**
-- **Zap** (logs estruturados)
-- **Context** (graceful shutdown)
-- **Docker**
-- **GitHub Actions** (CI/CD)
+## 🏗️ Arquitetura
 
----
+A arquitetura do `GoQueue` é modular e baseada em componentes que se comunicam de forma assíncrona. O diagrama abaixo ilustra o fluxo de um job desde a sua criação até o processamento:
 
-## 🎯 Funcionalidades
+```mermaid
+graph TD
+    Client[Cliente HTTP] -- POST /jobs --> Router[Router/Handlers]
+    Router -- Enqueue --> Queue[Job Queue - Channel]
+    Queue -- Dequeue --> WP[Worker Pool]
+    
+    subgraph "Worker Pool (Goroutines)"
+        W1[Worker 1]
+        W2[Worker 2]
+        W3[Worker N]
+    end
+    
+    WP --> W1
+    WP --> W2
+    WP --> W3
+    
+    W1 -- Process --> Job1[Email/PDF/Image]
+    W2 -- Process --> Job2[Email/PDF/Image]
+    W3 -- Process --> Job3[Email/PDF/Image]
+    
+    Job1 -- Update Status --> Storage[In-Memory Storage - Map + RWMutex]
+    Job2 -- Update Status --> Storage
+    Job3 -- Update Status --> Storage
+    
+    Router -- GET /jobs/:id --> Storage
+    Router -- GET /stats --> Storage
+```
 
-✅ API REST para criar e gerenciar jobs  
-✅ Fila de jobs em memória com channels  
-✅ Worker pool com 5 workers concorrentes  
-✅ Suporte a 3 tipos de jobs: `email`, `pdf`, `image`  
-✅ Endpoint de métricas (`/api/metrics`)  
-✅ Graceful shutdown (SIGINT/SIGTERM)  
-✅ Logs estruturados com Zap  
-✅ Testes automatizados  
+### Componentes Principais
 
----
+*   **`JobQueue` (`internal/queue`):** Gerencia a fila de jobs usando um `channel` para comunicação entre o produtor (API) e os consumidores (workers). Utiliza um `map` e `sync.RWMutex` para armazenar o estado dos jobs em memória de forma segura para concorrência.
+*   **`WorkerPool` (`internal/worker`):** Responsável por criar e gerenciar um pool de `goroutines` (workers) que consomem jobs da `JobQueue` e os processam. Cada worker simula o processamento de diferentes tipos de jobs (e-mail, PDF, imagem).
+*   **`Router` (`internal/router`):** Define as rotas da API HTTP usando o pacote `net/http` padrão do Go, encaminhando as requisições para os `handlers` apropriados.
+*   **`Handlers` (`internal/handlers`):** Contém a lógica para receber requisições HTTP, criar jobs e interagir com a `JobQueue`.
+*   **`Job` (`internal/models`):** Estrutura que representa um job, incluindo seu ID, tipo, payload, status e timestamps.
 
-## 🧰 Como rodar o projeto
+## 🚀 Como Rodar o Projeto
 
-### 1️⃣ Clone o repositório
+### Pré-requisitos
+
+*   [Go](https://golang.org/doc/install) (versão 1.18 ou superior)
+*   [Docker](https://docs.docker.com/get-docker/) (opcional, para rodar via Docker)
+
+### 1. Clonar o Repositório
+
 ```bash
 git clone https://github.com/shakarpg/goqueue.git
 cd goqueue
 ```
 
-### 2️⃣ Instale as dependências
+### 2. Instalar as dependências
+
 ```bash
 go mod tidy
 ```
 
-### 3️⃣ Rode a aplicação
+### 3. Rodar a aplicação
+
 ```bash
-make run
+go run cmd/main.go
 ```
 
-Acesse: [http://localhost:8080/health](http://localhost:8080/health)
+O servidor será iniciado na porta `8080` (ou na porta definida pela variável de ambiente `PORT`).
 
----
+### 4. Rodar com Docker
 
-## 🧪 Rodar os testes
+```bash
+docker build -t goqueue .
+docker run -p 8080:8080 goqueue
+```
+
+## 🔌 Endpoints da API
+
+O `GoQueue` expõe os seguintes endpoints:
+
+*   **`POST /jobs`**
+    *   **Descrição:** Enfileira um novo job para processamento assíncrono.
+    *   **Corpo da Requisição (JSON):**
+        ```json
+        {
+            "type": "email", // ou "pdf", "image"
+            "payload": {
+                "to": "teste@example.com",
+                "subject": "Assunto do Email",
+                "body": "Corpo do email"
+            }
+        }
+        ```
+    *   **Resposta (JSON):**
+        ```json
+        {
+            "id": "uuid-do-job",
+            "status": "pending"
+        }
+        ```
+
+*   **`GET /jobs/{id}`**
+    *   **Descrição:** Retorna o status e detalhes de um job específico.
+    *   **Exemplo:** `GET /jobs/a1b2c3d4-e5f6-7890-1234-567890abcdef`
+    *   **Resposta (JSON):**
+        ```json
+        {
+            "id": "uuid-do-job",
+            "type": "email",
+            "status": "completed", // ou "pending", "running", "failed"
+            "createdAt": "2023-10-27T10:00:00Z",
+            "startedAt": "2023-10-27T10:00:05Z",
+            "endedAt": "2023-10-27T10:00:10Z",
+            "result": "Email enviado para teste@example.com",
+            "error": ""
+        }
+        ```
+
+*   **`GET /stats`**
+    *   **Descrição:** Retorna estatísticas gerais da fila de jobs.
+    *   **Resposta (JSON):**
+        ```json
+        {
+            "total": 10,
+            "pending": 2,
+            "running": 3,
+            "completed": 5,
+            "failed": 0
+        }
+        ```
+
+## 🛑 Graceful Shutdown
+
+O `GoQueue` implementa um mecanismo de *graceful shutdown*. Isso significa que, ao receber um sinal de interrupção (`SIGINT` ou `SIGTERM`), o servidor HTTP para de aceitar novas requisições, mas aguarda um tempo configurável (10 segundos) para que as requisições e jobs em processamento sejam concluídos. Os workers também são sinalizados para finalizar suas tarefas atuais antes de encerrar, garantindo que nenhum job seja perdido durante o desligamento.
+
+## 🧪 Rodar os Testes
 
 ```bash
 make test
 ```
-
----
-
-## 📡 Endpoints da API
-
-| Método | Endpoint | Descrição |
-|--------|----------|-----------|
-| GET | `/health` | Health check |
-| POST | `/api/jobs` | Criar novo job |
-| GET | `/api/jobs` | Listar todos os jobs |
-| GET | `/api/jobs/{id}` | Obter job específico |
-| GET | `/api/metrics` | Estatísticas da fila |
-
----
-
-## 🧾 Exemplo de uso
-
-### 1. Criar job de email
-```bash
-curl -X POST http://localhost:8080/api/jobs \
-  -H "Content-Type: application/json" \
-  -d '{
-    "type": "email",
-    "payload": {
-      "to": "user@example.com",
-      "subject": "Hello",
-      "body": "Test email"
-    }
-  }'
-```
-
-**Resposta:**
-```json
-{
-  "id": "550e8400-e29b-41d4-a716-446655440000",
-  "type": "email",
-  "status": "pending",
-  "payload": {
-    "to": "user@example.com",
-    "subject": "Hello",
-    "body": "Test email"
-  },
-  "created_at": "2025-11-10T10:00:00Z"
-}
-```
-
-### 2. Criar job de PDF
-```bash
-curl -X POST http://localhost:8080/api/jobs \
-  -H "Content-Type: application/json" \
-  -d '{
-    "type": "pdf",
-    "payload": {
-      "filename": "report.pdf",
-      "content": "Report data"
-    }
-  }'
-```
-
-### 3. Verificar status do job
-```bash
-curl http://localhost:8080/api/jobs/550e8400-e29b-41d4-a716-446655440000
-```
-
-### 4. Ver métricas
-```bash
-curl http://localhost:8080/api/metrics
-```
-
-**Resposta:**
-```json
-{
-  "total": 10,
-  "pending": 2,
-  "running": 1,
-  "completed": 6,
-  "failed": 1
-}
-```
-
----
-
-## 🐳 Docker
-
-### Build
-```bash
-make docker-build
-```
-
-### Run
-```bash
-make docker-run
-```
-
----
 
 ## 📂 Estrutura do Projeto
 
@@ -188,50 +188,52 @@ goqueue/
 └── README.md
 ```
 
----
-
-## 🧠 Conceitos demonstrados
+## 🧠 Conceitos Demonstrados
 
 ### 🔹 Goroutines & Channels
-- Workers rodando concorrentemente
-- Comunicação via channels
-- Select statement para cancelamento
+*   Workers rodando concorrentemente.
+*   Comunicação eficiente via channels.
+*   Uso de `select` statement para cancelamento e multiplexação.
 
 ### 🔹 Worker Pool Pattern
-- Pool de 5 workers processando jobs
-- Distribuição automática de carga
-- Processamento assíncrono
+*   Pool de workers processando jobs em paralelo.
+*   Distribuição automática de carga.
+*   Processamento assíncrono para tarefas de longa duração.
 
 ### 🔹 Context & Graceful Shutdown
-- Context para cancelamento de goroutines
-- Captura de sinais SIGINT/SIGTERM
-- Shutdown gracioso do servidor HTTP
+*   Uso de `context.Context` para cancelamento de goroutines.
+*   Captura de sinais `SIGINT`/`SIGTERM` para desligamento controlado.
+*   Shutdown gracioso do servidor HTTP para evitar interrupções abruptas.
 
 ### 🔹 Concurrency-Safe Storage
-- Mutex para acesso seguro ao storage
-- RWMutex para otimizar leituras
+*   Utilização de `sync.Mutex` e `sync.RWMutex` para acesso seguro a dados compartilhados em ambientes concorrentes.
 
----
+## 📈 Próximos Passos (Melhorias Potenciais)
 
-## 🧠 Próximos passos (melhorias)
+*   [ ] Persistência em Redis ou banco de dados para jobs (atualmente em memória).
+*   [ ] Retry automático para jobs falhados.
+*   [ ] Priorização de jobs na fila.
+*   [ ] Rate limiting por tipo de job ou cliente.
+*   [ ] Dashboard web para visualização do status da fila e workers.
+*   [ ] Webhooks para notificação de conclusão de jobs.
+*   [ ] Suporte a jobs agendados (cron).
 
-- [ ] Persistência em Redis ou banco de dados
-- [ ] Retry automático para jobs falhados
-- [ ] Priorização de jobs
-- [ ] Rate limiting por tipo de job
-- [ ] Dashboard web para visualização
-- [ ] Webhooks para notificação de conclusão
-- [ ] Suporte a jobs agendados (cron)
+## 🤝 Contribuições
 
----
+Contribuições são muito bem-vindas! Se você tiver ideias para melhorias, correções de bugs ou novas funcionalidades, sinta-se à vontade para:
+
+1.  Fazer um **fork** deste repositório.
+2.  Criar uma nova **branch** (`git checkout -b feature/minha-feature`).
+3.  Realizar suas alterações e **commit** (`git commit -am 'feat: adiciona nova funcionalidade'`).
+4.  Enviar suas alterações para o seu fork (`git push origin feature/minha-feature`).
+5.  Abrir um **Pull Request** detalhando suas mudanças.
 
 ## 📄 Licença
 
-MIT License - sinta-se livre para usar e modificar!
-
----
+Este projeto está licenciado sob a **MIT License**. Veja o arquivo [LICENSE](LICENSE) para mais detalhes.
 
 ## 👤 Autor
 
-**Shakarpg**  
+**Rafael Galhardo**  
 GitHub: [@shakarpg](https://github.com/shakarpg)
+LinkedIn: [linkedin.com/in/rpg2011](https://linkedin.com/in/rpg2011)
