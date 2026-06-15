@@ -1,4 +1,4 @@
-# 🚀 GoQueue: Sistema de Fila de Jobs e Processamento Assíncrono em Go
+# 🚀 GoQueue: Job Queue and Asynchronous Processing System in Go
 
 <p align="center">
   <img src="https://img.shields.io/badge/Go-00ADD8?style=for-the-badge&logo=go&logoColor=white" alt="GoLang">
@@ -7,24 +7,24 @@
   <img src="https://img.shields.io/badge/License-MIT-yellow.svg" alt="License MIT">
 </p>
 
-Este projeto implementa um sistema de **fila de jobs** e **processamento assíncrono** em **Go (Golang)**, demonstrando o uso eficiente de **goroutines**, **channels**, **worker pools** e **graceful shutdown**. É uma solução robusta para lidar com tarefas que consomem tempo, como envio de e-mails, geração de relatórios PDF ou processamento de imagens, sem bloquear a thread principal da aplicação.
+This project implements a **job queue** and **asynchronous processing system** in **Go (Golang)**, showcasing the efficient use of **goroutines**, **channels**, **worker pools**, and **graceful shutdown**. It provides a robust solution for handling time-consuming tasks, such as sending emails, generating PDF reports, or processing images, without blocking the application's main thread.
 
-## ✨ Funcionalidades
+## ✨ Features
 
-*   **Fila de Jobs Concorrente:** Utiliza `channels` para gerenciar a fila de jobs de forma segura e eficiente.
-*   **Worker Pool Avançado:** Gerenciamento de ciclo de vida dos workers utilizando `golang.org/x/sync/errgroup`.
-*   **Processamento Assíncrono:** Permite que a aplicação responda rapidamente enquanto tarefas demoradas são executadas em segundo plano.
-*   **Graceful Shutdown Robusto:** Integração profunda com `context.Context` para garantir que os jobs em andamento sejam concluídos antes do desligamento.
-*   **API RESTful:** Interface HTTP para enfileirar novos jobs, consultar o status de jobs existentes e obter estatísticas da fila.
-*   **Logging Estruturado:** Integração com `zap` para logs de alta performance e fácil análise.
+*   **Concurrent Job Queue:** Utilizes `channels` to manage the job queue safely and efficiently.
+*   **Advanced Worker Pool:** Manages the worker lifecycle using `golang.org/x/sync/errgroup`.
+*   **Asynchronous Processing:** Allows the application to respond quickly while lengthy tasks are executed in the background.
+*   **Robust Graceful Shutdown:** Deep integration with `context.Context` ensures that ongoing jobs are completed before shutdown.
+*   **RESTful API:** Provides an HTTP interface to enqueue new jobs, query the status of existing jobs, and obtain queue statistics.
+*   **Structured Logging:** Integration with `zap` for high-performance and easily analyzable logs.
 
-## 🏗️ Arquitetura
+## 🏗️ Architecture
 
-A arquitetura do `GoQueue` é modular e baseada em componentes que se comunicam de forma assíncrona. O diagrama abaixo ilustra o fluxo de um job desde a sua criação até o processamento:
+The `GoQueue` architecture is modular and based on components that communicate asynchronously. The diagram below illustrates the flow of a job from its creation to processing:
 
 ```mermaid
 graph TD
-    Client[Cliente HTTP] -- POST /jobs --> Router[Router/Handlers]
+    Client[HTTP Client] -- POST /jobs --> Router[Router/Handlers]
     Router -- Enqueue --> Queue[Job Queue - Channel]
     Queue -- Dequeue --> WP[Worker Pool]
     
@@ -50,70 +50,70 @@ graph TD
     Router -- GET /stats --> Storage
 ```
 
-### Componentes Principais
+### Key Components
 
-*   **`JobQueue` (`internal/queue`):** Gerencia a fila de jobs usando um `channel` para comunicação entre o produtor (API) e os consumidores (workers). Utiliza um `map` e `sync.RWMutex` para armazenar o estado dos jobs em memória de forma segura para concorrência.
-*   **`WorkerPool` (`internal/worker`):** Responsável por criar e gerenciar um pool de `goroutines` (workers) que consomem jobs da `JobQueue`. Utiliza `errgroup` para garantir que o pool seja gerenciado como uma unidade atômica de trabalho.
-*   **`Router` (`internal/router`):** Define as rotas da API HTTP usando o pacote `net/http` padrão do Go, encaminhando as requisições para os `handlers` apropriados.
-*   **`Handlers` (`internal/handlers`):** Contém a lógica para receber requisições HTTP, criar jobs e interagir com a `JobQueue`.
-*   **`Job` (`internal/models`):** Estrutura que representa um job, incluindo seu ID, tipo, payload, status e timestamps.
+*   **`JobQueue` (`internal/queue`):** Manages the job queue using a `channel` for communication between the producer (API) and consumers (workers). It uses a `map` and `sync.RWMutex` to safely store job states in memory for concurrency.
+*   **`WorkerPool` (`internal/worker`):** Responsible for creating and managing a pool of `goroutines` (workers) that consume jobs from the `JobQueue`. It uses `errgroup` to ensure the pool is managed as an atomic unit of work.
+*   **`Router` (`internal/router`):** Defines the HTTP API routes using Go's standard `net/http` package, forwarding requests to the appropriate `handlers`.
+*   **`Handlers` (`internal/handlers`):** Contains the logic for receiving HTTP requests, creating jobs, and interacting with the `JobQueue`.
+*   **`Job` (`internal/models`):** A structure representing a job, including its ID, type, payload, status, and timestamps.
 
-## 🚀 Como Rodar o Projeto
+## 🚀 How to Run the Project
 
-### Pré-requisitos
+### Prerequisites
 
-*   [Go](https://golang.org/doc/install) (versão 1.18 ou superior)
-*   [Docker](https://docs.docker.com/get-docker/) (opcional, para rodar via Docker)
+*   [Go](https://golang.org/doc/install) (version 1.18 or higher)
+*   [Docker](https://docs.docker.com/get-docker/) (optional, for running via Docker)
 
-### 1. Clonar o Repositório
+### 1. Clone the Repository
 
 ```bash
 git clone https://github.com/shakarpg/goqueue.git
 cd goqueue
 ```
 
-### 2. Instalar as dependências
+### 2. Install Dependencies
 
 ```bash
 go mod tidy
 ```
 
-### 3. Rodar a aplicação
+### 3. Run the Application
 
 ```bash
 go run cmd/main.go
 ```
 
-O servidor será iniciado na porta `8080` (ou na porta definida pela variável de ambiente `PORT`).
+The server will start on port `8080` (or the port defined by the `PORT` environment variable).
 
 ## 🛑 Graceful Shutdown
 
-O `GoQueue` implementa um mecanismo de *graceful shutdown* avançado. Ao receber um sinal de interrupção (`SIGINT` ou `SIGTERM`), o servidor HTTP para de aceitar novas requisições e o `errgroup` sinaliza todos os workers para finalizarem suas tarefas atuais. O sistema aguarda até que todos os componentes confirmem o encerramento seguro antes de finalizar o processo.
+`GoQueue` implements an advanced *graceful shutdown* mechanism. Upon receiving an interrupt signal (`SIGINT` or `SIGTERM`), the HTTP server stops accepting new requests, and the `errgroup` signals all workers to complete their current tasks. The system waits until all components confirm safe termination before exiting the process.
 
-## 🧠 Conceitos Demonstrados
+## 🧠 Demonstrated Concepts
 
 ### 🔹 Goroutines & Channels
-*   Workers rodando concorrentemente com gerenciamento de estado via `errgroup`.
-*   Comunicação eficiente via channels.
-*   Uso de `select` statement para cancelamento e multiplexação.
+*   Workers running concurrently with state management via `errgroup`.
+*   Efficient communication via channels.
+*   Use of `select` statement for cancellation and multiplexing.
 
 ### 🔹 Worker Pool Pattern
-*   Pool de workers processando jobs em paralelo.
-*   Distribuição automática de carga e monitoramento de erros centralizado.
+*   Pool of workers processing jobs in parallel.
+*   Automatic load distribution and centralized error monitoring.
 
 ### 🔹 Context & Advanced Concurrency
-*   Uso de `context.Context` para cancelamento em cascata.
-*   Utilização de `golang.org/x/sync/errgroup` para sincronização de grupos de goroutines.
+*   Use of `context.Context` for cascading cancellation.
+*   Utilization of `golang.org/x/sync/errgroup` for synchronizing groups of goroutines.
 
-## 🤝 Contribuições
+## 🤝 Contributions
 
-Contribuições são muito bem-vindas! Se você tiver ideias para melhorias, correções de bugs ou novas funcionalidades, sinta-se à vontade para abrir um **Pull Request**.
+Contributions are highly welcome! If you have ideas for improvements, bug fixes, or new features, feel free to open a **Pull Request**.
 
-## 📄 Licença
+## 📄 License
 
-Este projeto está licenciado sob a **MIT License**. Veja o arquivo [LICENSE](LICENSE) para mais detalhes.
+This project is licensed under the **MIT License**. See the [LICENSE](LICENSE) file for more details.
 
-## 👤 Autor
+## 👤 Author
 
 **Rafael Galhardo**  
 GitHub: [@shakarpg](https://github.com/shakarpg)
