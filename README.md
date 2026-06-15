@@ -12,9 +12,9 @@ Este projeto implementa um sistema de **fila de jobs** e **processamento assínc
 ## ✨ Funcionalidades
 
 *   **Fila de Jobs Concorrente:** Utiliza `channels` para gerenciar a fila de jobs de forma segura e eficiente.
-*   **Worker Pool:** Um conjunto de `goroutines` processa os jobs em paralelo, otimizando o uso de recursos.
+*   **Worker Pool Avançado:** Gerenciamento de ciclo de vida dos workers utilizando `golang.org/x/sync/errgroup`.
 *   **Processamento Assíncrono:** Permite que a aplicação responda rapidamente enquanto tarefas demoradas são executadas em segundo plano.
-*   **Graceful Shutdown:** Garante que os jobs em andamento sejam concluídos antes do desligamento da aplicação, evitando perda de dados.
+*   **Graceful Shutdown Robusto:** Integração profunda com `context.Context` para garantir que os jobs em andamento sejam concluídos antes do desligamento.
 *   **API RESTful:** Interface HTTP para enfileirar novos jobs, consultar o status de jobs existentes e obter estatísticas da fila.
 *   **Logging Estruturado:** Integração com `zap` para logs de alta performance e fácil análise.
 
@@ -53,7 +53,7 @@ graph TD
 ### Componentes Principais
 
 *   **`JobQueue` (`internal/queue`):** Gerencia a fila de jobs usando um `channel` para comunicação entre o produtor (API) e os consumidores (workers). Utiliza um `map` e `sync.RWMutex` para armazenar o estado dos jobs em memória de forma segura para concorrência.
-*   **`WorkerPool` (`internal/worker`):** Responsável por criar e gerenciar um pool de `goroutines` (workers) que consomem jobs da `JobQueue` e os processam. Cada worker simula o processamento de diferentes tipos de jobs (e-mail, PDF, imagem).
+*   **`WorkerPool` (`internal/worker`):** Responsável por criar e gerenciar um pool de `goroutines` (workers) que consomem jobs da `JobQueue`. Utiliza `errgroup` para garantir que o pool seja gerenciado como uma unidade atômica de trabalho.
 *   **`Router` (`internal/router`):** Define as rotas da API HTTP usando o pacote `net/http` padrão do Go, encaminhando as requisições para os `handlers` apropriados.
 *   **`Handlers` (`internal/handlers`):** Contém a lógica para receber requisições HTTP, criar jobs e interagir com a `JobQueue`.
 *   **`Job` (`internal/models`):** Estrutura que representa um job, incluindo seu ID, tipo, payload, status e timestamps.
@@ -86,147 +86,28 @@ go run cmd/main.go
 
 O servidor será iniciado na porta `8080` (ou na porta definida pela variável de ambiente `PORT`).
 
-### 4. Rodar com Docker
-
-```bash
-docker build -t goqueue .
-docker run -p 8080:8080 goqueue
-```
-
-## 🔌 Endpoints da API
-
-O `GoQueue` expõe os seguintes endpoints:
-
-*   **`POST /jobs`**
-    *   **Descrição:** Enfileira um novo job para processamento assíncrono.
-    *   **Corpo da Requisição (JSON):**
-        ```json
-        {
-            "type": "email", // ou "pdf", "image"
-            "payload": {
-                "to": "teste@example.com",
-                "subject": "Assunto do Email",
-                "body": "Corpo do email"
-            }
-        }
-        ```
-    *   **Resposta (JSON):**
-        ```json
-        {
-            "id": "uuid-do-job",
-            "status": "pending"
-        }
-        ```
-
-*   **`GET /jobs/{id}`**
-    *   **Descrição:** Retorna o status e detalhes de um job específico.
-    *   **Exemplo:** `GET /jobs/a1b2c3d4-e5f6-7890-1234-567890abcdef`
-    *   **Resposta (JSON):**
-        ```json
-        {
-            "id": "uuid-do-job",
-            "type": "email",
-            "status": "completed", // ou "pending", "running", "failed"
-            "createdAt": "2023-10-27T10:00:00Z",
-            "startedAt": "2023-10-27T10:00:05Z",
-            "endedAt": "2023-10-27T10:00:10Z",
-            "result": "Email enviado para teste@example.com",
-            "error": ""
-        }
-        ```
-
-*   **`GET /stats`**
-    *   **Descrição:** Retorna estatísticas gerais da fila de jobs.
-    *   **Resposta (JSON):**
-        ```json
-        {
-            "total": 10,
-            "pending": 2,
-            "running": 3,
-            "completed": 5,
-            "failed": 0
-        }
-        ```
-
 ## 🛑 Graceful Shutdown
 
-O `GoQueue` implementa um mecanismo de *graceful shutdown*. Isso significa que, ao receber um sinal de interrupção (`SIGINT` ou `SIGTERM`), o servidor HTTP para de aceitar novas requisições, mas aguarda um tempo configurável (10 segundos) para que as requisições e jobs em processamento sejam concluídos. Os workers também são sinalizados para finalizar suas tarefas atuais antes de encerrar, garantindo que nenhum job seja perdido durante o desligamento.
-
-## 🧪 Rodar os Testes
-
-```bash
-make test
-```
-
-## 📂 Estrutura do Projeto
-
-```
-goqueue/
-├── .github/
-│   └── workflows/
-│       └── go.yml           # GitHub Actions CI/CD
-├── cmd/
-│   └── main.go              # Entry point
-├── internal/
-│   ├── models/
-│   │   └── job.go           # Modelo de Job
-│   ├── queue/
-│   │   └── queue.go         # Fila de jobs
-│   ├── worker/
-│   │   └── worker.go        # Worker pool
-│   ├── handlers/
-│   │   └── jobs.go          # Handlers HTTP
-│   └── router/
-│       └── router.go        # Configuração de rotas
-├── tests/
-│   └── queue_test.go        # Testes
-├── .env
-├── .gitignore
-├── Dockerfile
-├── Makefile
-├── go.mod
-└── README.md
-```
+O `GoQueue` implementa um mecanismo de *graceful shutdown* avançado. Ao receber um sinal de interrupção (`SIGINT` ou `SIGTERM`), o servidor HTTP para de aceitar novas requisições e o `errgroup` sinaliza todos os workers para finalizarem suas tarefas atuais. O sistema aguarda até que todos os componentes confirmem o encerramento seguro antes de finalizar o processo.
 
 ## 🧠 Conceitos Demonstrados
 
 ### 🔹 Goroutines & Channels
-*   Workers rodando concorrentemente.
+*   Workers rodando concorrentemente com gerenciamento de estado via `errgroup`.
 *   Comunicação eficiente via channels.
 *   Uso de `select` statement para cancelamento e multiplexação.
 
 ### 🔹 Worker Pool Pattern
 *   Pool de workers processando jobs em paralelo.
-*   Distribuição automática de carga.
-*   Processamento assíncrono para tarefas de longa duração.
+*   Distribuição automática de carga e monitoramento de erros centralizado.
 
-### 🔹 Context & Graceful Shutdown
-*   Uso de `context.Context` para cancelamento de goroutines.
-*   Captura de sinais `SIGINT`/`SIGTERM` para desligamento controlado.
-*   Shutdown gracioso do servidor HTTP para evitar interrupções abruptas.
-
-### 🔹 Concurrency-Safe Storage
-*   Utilização de `sync.Mutex` e `sync.RWMutex` para acesso seguro a dados compartilhados em ambientes concorrentes.
-
-## 📈 Próximos Passos (Melhorias Potenciais)
-
-*   [ ] Persistência em Redis ou banco de dados para jobs (atualmente em memória).
-*   [ ] Retry automático para jobs falhados.
-*   [ ] Priorização de jobs na fila.
-*   [ ] Rate limiting por tipo de job ou cliente.
-*   [ ] Dashboard web para visualização do status da fila e workers.
-*   [ ] Webhooks para notificação de conclusão de jobs.
-*   [ ] Suporte a jobs agendados (cron).
+### 🔹 Context & Advanced Concurrency
+*   Uso de `context.Context` para cancelamento em cascata.
+*   Utilização de `golang.org/x/sync/errgroup` para sincronização de grupos de goroutines.
 
 ## 🤝 Contribuições
 
-Contribuições são muito bem-vindas! Se você tiver ideias para melhorias, correções de bugs ou novas funcionalidades, sinta-se à vontade para:
-
-1.  Fazer um **fork** deste repositório.
-2.  Criar uma nova **branch** (`git checkout -b feature/minha-feature`).
-3.  Realizar suas alterações e **commit** (`git commit -am 'feat: adiciona nova funcionalidade'`).
-4.  Enviar suas alterações para o seu fork (`git push origin feature/minha-feature`).
-5.  Abrir um **Pull Request** detalhando suas mudanças.
+Contribuições são muito bem-vindas! Se você tiver ideias para melhorias, correções de bugs ou novas funcionalidades, sinta-se à vontade para abrir um **Pull Request**.
 
 ## 📄 Licença
 
