@@ -1,6 +1,10 @@
 # 🚀 GoQueue: Job Queue and Asynchronous Processing System in Go
 
 <p align="center">
+  <b>English</b> | <a href="README.pt-br.md">Português</a>
+</p>
+
+<p align="center">
   <img src="https://img.shields.io/badge/Go-00ADD8?style=for-the-badge&logo=go&logoColor=white" alt="GoLang">
   <img src="https://img.shields.io/badge/Docker-2496ED?style=for-the-badge&logo=docker&logoColor=white" alt="Docker">
   <img src="https://img.shields.io/badge/GitHub_Actions-2671E5?style=for-the-badge&logo=githubactions&logoColor=white" alt="GitHub Actions">
