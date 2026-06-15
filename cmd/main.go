@@ -28,7 +28,9 @@ func main() {
 	defer cancel()
 
 	pool := worker.NewWorkerPool(numWorkers, jobQueue, logger)
-	pool.Start(ctx)
+	if err := pool.Start(ctx); err != nil {
+		logger.Fatal("❌ Erro ao iniciar worker pool", zap.Error(err))
+	}
 
 	// Configurar rotas
 	r := router.NewRouter(jobQueue, logger)

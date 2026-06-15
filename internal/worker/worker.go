@@ -8,6 +8,7 @@ import (
 	"github.com/shakarpg/goqueue/internal/models"
 	"github.com/shakarpg/goqueue/internal/queue"
 	"go.uber.org/zap"
+	"golang.org/x/sync/errgroup"
 )
 
 type WorkerPool struct {
@@ -24,24 +25,43 @@ func NewWorkerPool(numWorkers int, queue *queue.JobQueue, logger *zap.Logger) *W
 	}
 }
 
-// Start inicia os workers
-func (wp *WorkerPool) Start(ctx context.Context) {
+// Start inicia os workers usando errgroup para gerenciamento de ciclo de vida
+func (wp *WorkerPool) Start(ctx context.Context) error {
+	g, ctx := errgroup.WithContext(ctx)
+
 	for i := 1; i <= wp.numWorkers; i++ {
-		go wp.worker(ctx, i)
+		id := i
+		g.Go(func() error {
+			return wp.worker(ctx, id)
+		})
 	}
-	wp.logger.Info("✅ Workers iniciados", zap.Int("count", wp.numWorkers))
+
+	wp.logger.Info("✅ Worker pool iniciado", zap.Int("count", wp.numWorkers))
+
+	// Espera todos os workers finalizarem ou o contexto ser cancelado
+	go func() {
+		if err := g.Wait(); err != nil && err != context.Canceled {
+			wp.logger.Error("❌ Erro no worker pool", zap.Error(err))
+		}
+	}()
+
+	return nil
 }
 
 // worker processa jobs da fila
-func (wp *WorkerPool) worker(ctx context.Context, id int) {
+func (wp *WorkerPool) worker(ctx context.Context, id int) error {
 	wp.logger.Info("🔧 Worker iniciado", zap.Int("worker_id", id))
 
 	for {
 		select {
 		case <-ctx.Done():
 			wp.logger.Info("🛑 Worker finalizado", zap.Int("worker_id", id))
-			return
-		case job := <-wp.queue.Dequeue():
+			return ctx.Err()
+		case job, ok := <-wp.queue.Dequeue():
+			if !ok {
+				wp.logger.Info("⚠️ Canal de jobs fechado, finalizando worker", zap.Int("worker_id", id))
+				return nil
+			}
 			wp.processJob(job, id)
 		}
 	}
